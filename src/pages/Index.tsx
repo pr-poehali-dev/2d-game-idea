@@ -40,6 +40,16 @@ interface MathProblem {
   answer: number;
 }
 
+interface PlayerRecord {
+  id: string;
+  name: string;
+  score: number;
+  monstersDefeated: number;
+  gold: number;
+  level: number;
+  timestamp: number;
+}
+
 const Index = () => {
   const [playerStats, setPlayerStats] = useState({
     name: 'Герой',
@@ -73,6 +83,16 @@ const Index = () => {
   const [mathProblem, setMathProblem] = useState<MathProblem | null>(null);
   const [playerAnswer, setPlayerAnswer] = useState('');
   const [battleLog, setBattleLog] = useState<string[]>([]);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [gameStats, setGameStats] = useState({
+    monstersDefeated: 0,
+    correctAnswers: 0,
+    totalBattles: 0
+  });
+  const [leaderboard, setLeaderboard] = useState<PlayerRecord[]>(() => {
+    const saved = localStorage.getItem('pixelquest_leaderboard');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const generateMathProblem = (level: number): MathProblem => {
     const operations = ['+', '-', '*'];
@@ -127,8 +147,16 @@ const Index = () => {
       
       setCurrentMonster({ ...currentMonster, hp: newMonsterHp });
       setBattleLog(prev => [...prev, `✓ Правильно! Урон: ${damage}`]);
+      setGameStats(prev => ({ ...prev, correctAnswers: prev.correctAnswers + 1 }));
       
       if (newMonsterHp <= 0) {
+        const newStats = {
+          monstersDefeated: gameStats.monstersDefeated + 1,
+          correctAnswers: gameStats.correctAnswers + 1,
+          totalBattles: gameStats.totalBattles + 1
+        };
+        setGameStats(newStats);
+        
         toast.success(`Победа! +${currentMonster.reward} золота`);
         setPlayerStats(prev => ({
           ...prev,
@@ -136,6 +164,23 @@ const Index = () => {
           exp: prev.exp + 50
         }));
         setBattleLog(prev => [...prev, `🏆 ${currentMonster.name} побеждён!`]);
+        
+        const newRecord: PlayerRecord = {
+          id: Date.now().toString(),
+          name: playerStats.name,
+          score: playerStats.gold + currentMonster.reward,
+          monstersDefeated: newStats.monstersDefeated,
+          gold: playerStats.gold + currentMonster.reward,
+          level: playerStats.level,
+          timestamp: Date.now()
+        };
+        
+        const updatedLeaderboard = [...leaderboard, newRecord]
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 10);
+        setLeaderboard(updatedLeaderboard);
+        localStorage.setItem('pixelquest_leaderboard', JSON.stringify(updatedLeaderboard));
+        
         setTimeout(() => {
           setInBattle(false);
           setCurrentMonster(null);
@@ -286,7 +331,79 @@ const Index = () => {
         <div className="text-center py-6 animate-fade-in">
           <h1 className="text-2xl md:text-4xl text-primary mb-2">⚔️ PIXEL QUEST ⚔️</h1>
           <p className="text-xs md:text-sm text-muted-foreground">Приключение начинается</p>
+          <div className="flex justify-center gap-2 mt-4">
+            <Button
+              onClick={() => setShowLeaderboard(!showLeaderboard)}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              <Icon name="Trophy" size={14} className="mr-2" />
+              {showLeaderboard ? 'Скрыть рекорды' : 'Таблица рекордов'}
+            </Button>
+          </div>
         </div>
+
+        {showLeaderboard && (
+          <Card className="p-4 bg-card border-2 border-primary animate-fade-in">
+            <div className="flex items-center gap-2 mb-4">
+              <Icon name="Trophy" size={20} className="text-primary" />
+              <h2 className="text-base md:text-lg font-bold">ТАБЛИЦА ЛИДЕРОВ</h2>
+            </div>
+            
+            <div className="mb-4 grid grid-cols-3 gap-2 text-xs">
+              <Card className="p-3 bg-muted border border-border text-center">
+                <div className="text-2xl mb-1">👹</div>
+                <div className="text-muted-foreground">Побед</div>
+                <div className="text-lg font-bold text-primary">{gameStats.monstersDefeated}</div>
+              </Card>
+              <Card className="p-3 bg-muted border border-border text-center">
+                <div className="text-2xl mb-1">✓</div>
+                <div className="text-muted-foreground">Верных</div>
+                <div className="text-lg font-bold text-accent">{gameStats.correctAnswers}</div>
+              </Card>
+              <Card className="p-3 bg-muted border border-border text-center">
+                <div className="text-2xl mb-1">⚔️</div>
+                <div className="text-muted-foreground">Боёв</div>
+                <div className="text-lg font-bold text-secondary">{gameStats.totalBattles}</div>
+              </Card>
+            </div>
+
+            {leaderboard.length > 0 ? (
+              <div className="space-y-2">
+                {leaderboard.map((record, index) => (
+                  <div
+                    key={record.id}
+                    className="flex items-center gap-3 p-3 bg-muted rounded border border-border"
+                  >
+                    <div className="text-xl font-bold w-8 text-center">
+                      {index === 0 && '🥇'}
+                      {index === 1 && '🥈'}
+                      {index === 2 && '🥉'}
+                      {index > 2 && `#${index + 1}`}
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-xs font-bold">{record.name}</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        Ур.{record.level} • {record.monstersDefeated} побед
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-bold text-secondary">{record.gold} 💰</div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {new Date(record.timestamp).toLocaleDateString('ru-RU')}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-sm text-muted-foreground py-8">
+                Побеждай монстров, чтобы попасть в таблицу! 🏆
+              </div>
+            )}
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 space-y-4">
