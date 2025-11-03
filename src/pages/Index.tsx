@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
@@ -25,8 +26,22 @@ interface Item {
   icon: string;
 }
 
+interface Monster {
+  name: string;
+  hp: number;
+  maxHp: number;
+  level: number;
+  icon: string;
+  reward: number;
+}
+
+interface MathProblem {
+  question: string;
+  answer: number;
+}
+
 const Index = () => {
-  const [playerStats] = useState({
+  const [playerStats, setPlayerStats] = useState({
     name: 'Герой',
     level: 5,
     hp: 85,
@@ -53,6 +68,100 @@ const Index = () => {
 
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [showInventory, setShowInventory] = useState(false);
+  const [inBattle, setInBattle] = useState(false);
+  const [currentMonster, setCurrentMonster] = useState<Monster | null>(null);
+  const [mathProblem, setMathProblem] = useState<MathProblem | null>(null);
+  const [playerAnswer, setPlayerAnswer] = useState('');
+  const [battleLog, setBattleLog] = useState<string[]>([]);
+
+  const generateMathProblem = (level: number): MathProblem => {
+    const operations = ['+', '-', '*'];
+    const operation = operations[Math.floor(Math.random() * operations.length)];
+    
+    let num1, num2, answer, question;
+    
+    if (operation === '+') {
+      num1 = Math.floor(Math.random() * (10 * level)) + 1;
+      num2 = Math.floor(Math.random() * (10 * level)) + 1;
+      answer = num1 + num2;
+      question = `${num1} + ${num2} = ?`;
+    } else if (operation === '-') {
+      num1 = Math.floor(Math.random() * (10 * level)) + 10;
+      num2 = Math.floor(Math.random() * num1) + 1;
+      answer = num1 - num2;
+      question = `${num1} - ${num2} = ?`;
+    } else {
+      num1 = Math.floor(Math.random() * (5 * level)) + 1;
+      num2 = Math.floor(Math.random() * 10) + 1;
+      answer = num1 * num2;
+      question = `${num1} × ${num2} = ?`;
+    }
+    
+    return { question, answer };
+  };
+
+  const startBattle = (location: Location) => {
+    const monsters = [
+      { name: 'Гоблин', hp: 30, maxHp: 30, level: 3, icon: '👹', reward: 50 },
+      { name: 'Орк', hp: 50, maxHp: 50, level: 5, icon: '👺', reward: 100 },
+      { name: 'Дракон', hp: 100, maxHp: 100, level: 8, icon: '🐉', reward: 300 },
+      { name: 'Скелет', hp: 40, maxHp: 40, level: 4, icon: '💀', reward: 75 },
+      { name: 'Тёмный маг', hp: 60, maxHp: 60, level: 6, icon: '🧙', reward: 150 }
+    ];
+    
+    const monster = monsters[Math.floor(Math.random() * monsters.length)];
+    setCurrentMonster(monster);
+    setInBattle(true);
+    setBattleLog([`Встречен ${monster.name} (Ур. ${monster.level})!`]);
+    setMathProblem(generateMathProblem(monster.level));
+  };
+
+  const handleAttack = () => {
+    if (!mathProblem || !currentMonster) return;
+    
+    const userAnswer = parseInt(playerAnswer);
+    
+    if (userAnswer === mathProblem.answer) {
+      const damage = Math.floor(Math.random() * 20) + 15;
+      const newMonsterHp = Math.max(0, currentMonster.hp - damage);
+      
+      setCurrentMonster({ ...currentMonster, hp: newMonsterHp });
+      setBattleLog(prev => [...prev, `✓ Правильно! Урон: ${damage}`]);
+      
+      if (newMonsterHp <= 0) {
+        toast.success(`Победа! +${currentMonster.reward} золота`);
+        setPlayerStats(prev => ({
+          ...prev,
+          gold: prev.gold + currentMonster.reward,
+          exp: prev.exp + 50
+        }));
+        setBattleLog(prev => [...prev, `🏆 ${currentMonster.name} побеждён!`]);
+        setTimeout(() => {
+          setInBattle(false);
+          setCurrentMonster(null);
+          setBattleLog([]);
+        }, 2000);
+      } else {
+        const monsterDamage = Math.floor(Math.random() * 15) + 5;
+        setPlayerStats(prev => ({
+          ...prev,
+          hp: Math.max(0, prev.hp - monsterDamage)
+        }));
+        setBattleLog(prev => [...prev, `${currentMonster.name} атакует: -${monsterDamage} HP`]);
+        setMathProblem(generateMathProblem(currentMonster.level));
+      }
+    } else {
+      const monsterDamage = Math.floor(Math.random() * 20) + 10;
+      setPlayerStats(prev => ({
+        ...prev,
+        hp: Math.max(0, prev.hp - monsterDamage)
+      }));
+      setBattleLog(prev => [...prev, `✗ Неверно! ${currentMonster.name} атакует: -${monsterDamage} HP`]);
+      setMathProblem(generateMathProblem(currentMonster.level));
+    }
+    
+    setPlayerAnswer('');
+  };
 
   const handleLocationClick = (location: Location) => {
     if (!location.discovered) {
@@ -83,6 +192,93 @@ const Index = () => {
       default: return 'bg-muted';
     }
   };
+
+  useEffect(() => {
+    if (playerStats.hp <= 0) {
+      toast.error('Поражение! HP восстановлено.');
+      setInBattle(false);
+      setCurrentMonster(null);
+      setBattleLog([]);
+      setPlayerStats(prev => ({ ...prev, hp: prev.maxHp }));
+    }
+  }, [playerStats.hp]);
+
+  if (inBattle && currentMonster) {
+    return (
+      <div className="min-h-screen bg-background font-pixel text-foreground p-4 flex items-center justify-center">
+        <Card className="w-full max-w-2xl p-6 bg-card border-2 border-destructive animate-fade-in">
+          <div className="text-center mb-6">
+            <h2 className="text-xl md:text-2xl text-destructive mb-2">⚔️ БОЙ ⚔️</h2>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="text-center">
+              <div className="text-4xl mb-2">⚔️</div>
+              <div className="text-sm font-bold">{playerStats.name}</div>
+              <Badge variant="secondary" className="text-xs mb-2">Ур. {playerStats.level}</Badge>
+              <Progress value={(playerStats.hp / playerStats.maxHp) * 100} className="h-3 mb-1" />
+              <div className="text-xs">{playerStats.hp}/{playerStats.maxHp} HP</div>
+            </div>
+
+            <div className="text-center">
+              <div className="text-4xl mb-2">{currentMonster.icon}</div>
+              <div className="text-sm font-bold">{currentMonster.name}</div>
+              <Badge variant="destructive" className="text-xs mb-2">Ур. {currentMonster.level}</Badge>
+              <Progress value={(currentMonster.hp / currentMonster.maxHp) * 100} className="h-3 mb-1" />
+              <div className="text-xs">{currentMonster.hp}/{currentMonster.maxHp} HP</div>
+            </div>
+          </div>
+
+          {mathProblem && (
+            <div className="bg-muted rounded-lg p-6 mb-4 border-2 border-primary">
+              <div className="text-center mb-4">
+                <div className="text-sm text-muted-foreground mb-2">Реши пример для атаки:</div>
+                <div className="text-2xl md:text-3xl font-bold text-primary mb-4">{mathProblem.question}</div>
+              </div>
+              
+              <div className="flex gap-2">
+                <Input
+                  type="number"
+                  value={playerAnswer}
+                  onChange={(e) => setPlayerAnswer(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleAttack()}
+                  placeholder="Твой ответ"
+                  className="text-center text-lg font-bold"
+                  autoFocus
+                />
+                <Button onClick={handleAttack} size="lg" className="text-xs">
+                  <Icon name="Swords" size={16} className="mr-2" />
+                  Атака
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <Card className="bg-background p-3 max-h-32 overflow-y-auto">
+            <div className="text-xs space-y-1">
+              {battleLog.map((log, index) => (
+                <div key={index} className="text-muted-foreground">{log}</div>
+              ))}
+            </div>
+          </Card>
+
+          <Button 
+            onClick={() => {
+              setInBattle(false);
+              setCurrentMonster(null);
+              setBattleLog([]);
+              toast.info('Сбежал из боя');
+            }}
+            variant="outline"
+            size="sm"
+            className="w-full mt-4 text-xs"
+          >
+            Сбежать
+          </Button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background font-pixel text-foreground p-4">
@@ -160,12 +356,25 @@ const Index = () => {
                     <Icon name="X" size={16} />
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">{selectedLocation.description}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed mb-3">{selectedLocation.description}</p>
                 {selectedLocation.discovered && (
-                  <Button className="w-full mt-3 text-xs" size="sm">
-                    <Icon name="ArrowRight" size={14} className="mr-2" />
-                    Отправиться
-                  </Button>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(selectedLocation.type === 'dungeon' || selectedLocation.type === 'secret') && (
+                      <Button 
+                        onClick={() => startBattle(selectedLocation)} 
+                        variant="destructive"
+                        className="text-xs" 
+                        size="sm"
+                      >
+                        <Icon name="Swords" size={14} className="mr-2" />
+                        В бой!
+                      </Button>
+                    )}
+                    <Button className="text-xs" size="sm">
+                      <Icon name="ArrowRight" size={14} className="mr-2" />
+                      Исследовать
+                    </Button>
+                  </div>
                 )}
               </Card>
             )}
