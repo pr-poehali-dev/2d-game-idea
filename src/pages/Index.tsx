@@ -1,11 +1,286 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from 'react';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import Icon from '@/components/ui/icon';
+import { toast } from 'sonner';
+
+interface Location {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  type: 'city' | 'dungeon' | 'secret' | 'quest';
+  description: string;
+  discovered: boolean;
+  icon: string;
+}
+
+interface Item {
+  id: string;
+  name: string;
+  type: string;
+  description: string;
+  icon: string;
+}
 
 const Index = () => {
+  const [playerStats] = useState({
+    name: 'Герой',
+    level: 5,
+    hp: 85,
+    maxHp: 100,
+    exp: 450,
+    maxExp: 600,
+    gold: 1250
+  });
+
+  const [inventory, setInventory] = useState<Item[]>([
+    { id: '1', name: 'Меч героя', type: 'Оружие', description: 'Легендарный клинок', icon: '⚔️' },
+    { id: '2', name: 'Зелье здоровья', type: 'Предмет', description: '+50 HP', icon: '🧪' },
+    { id: '3', name: 'Древний ключ', type: 'Квест', description: 'Открывает тайную дверь', icon: '🗝️' }
+  ]);
+
+  const [locations, setLocations] = useState<Location[]>([
+    { id: '1', name: 'Стартовая деревня', x: 50, y: 70, type: 'city', description: 'Мирное место, откуда начинается путешествие', discovered: true, icon: '🏘️' },
+    { id: '2', name: 'Тёмный лес', x: 30, y: 45, type: 'dungeon', description: 'Опасное место, полное монстров', discovered: true, icon: '🌲' },
+    { id: '3', name: 'Древний храм', x: 70, y: 30, type: 'secret', description: 'Загадочные руины древней цивилизации', discovered: false, icon: '🏛️' },
+    { id: '4', name: 'Королевский город', x: 80, y: 60, type: 'city', description: 'Столица королевства', discovered: false, icon: '🏰' },
+    { id: '5', name: 'Проклятая пещера', x: 20, y: 80, type: 'dungeon', description: 'Логово древнего дракона', discovered: false, icon: '⛰️' },
+    { id: '6', name: 'Таинственный портал', x: 55, y: 20, type: 'quest', description: 'Ведёт в неизведанные миры', discovered: false, icon: '🌀' }
+  ]);
+
+  const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
+  const [showInventory, setShowInventory] = useState(false);
+
+  const handleLocationClick = (location: Location) => {
+    if (!location.discovered) {
+      const updatedLocations = locations.map(loc => 
+        loc.id === location.id ? { ...loc, discovered: true } : loc
+      );
+      setLocations(updatedLocations);
+      toast.success(`Открыто новое место: ${location.name}!`);
+      
+      const randomItems = [
+        { id: Date.now().toString(), name: 'Артефакт силы', type: 'Артефакт', description: '+10 к атаке', icon: '💎' },
+        { id: Date.now().toString(), name: 'Свиток знаний', type: 'Свиток', description: '+50 опыта', icon: '📜' },
+        { id: Date.now().toString(), name: 'Магическая руна', type: 'Артефакт', description: 'Загадочная сила', icon: '🔮' }
+      ];
+      const randomItem = randomItems[Math.floor(Math.random() * randomItems.length)];
+      setInventory([...inventory, randomItem]);
+      toast.info(`Получен предмет: ${randomItem.name}!`);
+    }
+    setSelectedLocation(location);
+  };
+
+  const getLocationColor = (type: string) => {
+    switch (type) {
+      case 'city': return 'bg-accent';
+      case 'dungeon': return 'bg-destructive';
+      case 'secret': return 'bg-primary';
+      case 'quest': return 'bg-secondary';
+      default: return 'bg-muted';
+    }
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4 color-black text-black">Добро пожаловать!</h1>
-        <p className="text-xl text-gray-600">тут будет отображаться ваш проект</p>
+    <div className="min-h-screen bg-background font-pixel text-foreground p-4">
+      <div className="max-w-7xl mx-auto space-y-4">
+        <div className="text-center py-6 animate-fade-in">
+          <h1 className="text-2xl md:text-4xl text-primary mb-2">⚔️ PIXEL QUEST ⚔️</h1>
+          <p className="text-xs md:text-sm text-muted-foreground">Приключение начинается</p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 space-y-4">
+            <Card className="p-4 bg-card border-2 border-border">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm md:text-base flex items-center gap-2">
+                  <Icon name="Map" size={20} />
+                  КАРТА МИРА
+                </h2>
+                <Badge variant="outline" className="text-xs">
+                  {locations.filter(l => l.discovered).length}/{locations.length} открыто
+                </Badge>
+              </div>
+              
+              <div className="relative w-full aspect-square bg-muted rounded border-2 border-border overflow-hidden">
+                <div className="absolute inset-0 opacity-10" style={{
+                  backgroundImage: 'repeating-linear-gradient(0deg, hsl(var(--border)) 0px, hsl(var(--border)) 1px, transparent 1px, transparent 20px), repeating-linear-gradient(90deg, hsl(var(--border)) 0px, hsl(var(--border)) 1px, transparent 1px, transparent 20px)',
+                  backgroundSize: '20px 20px'
+                }} />
+                
+                {locations.map((location) => (
+                  <button
+                    key={location.id}
+                    onClick={() => handleLocationClick(location)}
+                    className={`absolute transform -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${
+                      location.discovered 
+                        ? 'opacity-100 hover:scale-125 animate-float' 
+                        : 'opacity-50 hover:opacity-75 animate-pulse'
+                    }`}
+                    style={{ left: `${location.x}%`, top: `${location.y}%` }}
+                  >
+                    <div className={`${getLocationColor(location.type)} rounded-full p-2 md:p-3 border-2 border-foreground shadow-lg`}>
+                      <span className="text-xl md:text-2xl">{location.icon}</span>
+                    </div>
+                    {location.discovered && (
+                      <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                        <span className="text-[8px] md:text-xs bg-background/90 px-2 py-1 rounded border border-border">
+                          {location.name}
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            {selectedLocation && (
+              <Card className="p-4 bg-card border-2 border-primary animate-fade-in">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">{selectedLocation.icon}</span>
+                    <div>
+                      <h3 className="text-sm md:text-base font-bold">{selectedLocation.name}</h3>
+                      <Badge className={`${getLocationColor(selectedLocation.type)} text-xs mt-1`}>
+                        {selectedLocation.type === 'city' && 'Город'}
+                        {selectedLocation.type === 'dungeon' && 'Подземелье'}
+                        {selectedLocation.type === 'secret' && 'Тайное место'}
+                        {selectedLocation.type === 'quest' && 'Квест'}
+                      </Badge>
+                    </div>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    variant="ghost"
+                    onClick={() => setSelectedLocation(null)}
+                  >
+                    <Icon name="X" size={16} />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">{selectedLocation.description}</p>
+                {selectedLocation.discovered && (
+                  <Button className="w-full mt-3 text-xs" size="sm">
+                    <Icon name="ArrowRight" size={14} className="mr-2" />
+                    Отправиться
+                  </Button>
+                )}
+              </Card>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            <Card className="p-4 bg-card border-2 border-border">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-primary rounded border-2 border-foreground flex items-center justify-center text-2xl">
+                  ⚔️
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-sm md:text-base font-bold">{playerStats.name}</h3>
+                  <Badge variant="secondary" className="text-xs">Ур. {playerStats.level}</Badge>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span className="flex items-center gap-1">
+                      <Icon name="Heart" size={12} />
+                      HP
+                    </span>
+                    <span>{playerStats.hp}/{playerStats.maxHp}</span>
+                  </div>
+                  <Progress value={(playerStats.hp / playerStats.maxHp) * 100} className="h-2" />
+                </div>
+
+                <div>
+                  <div className="flex justify-between mb-1">
+                    <span className="flex items-center gap-1">
+                      <Icon name="Zap" size={12} />
+                      EXP
+                    </span>
+                    <span>{playerStats.exp}/{playerStats.maxExp}</span>
+                  </div>
+                  <Progress value={(playerStats.exp / playerStats.maxExp) * 100} className="h-2" />
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-border">
+                  <span className="flex items-center gap-1">
+                    <Icon name="Coins" size={12} />
+                    Золото
+                  </span>
+                  <span className="font-bold text-secondary">{playerStats.gold}</span>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-4 bg-card border-2 border-border">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm md:text-base flex items-center gap-2">
+                  <Icon name="Backpack" size={16} />
+                  ИНВЕНТАРЬ
+                </h3>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setShowInventory(!showInventory)}
+                >
+                  <Icon name={showInventory ? "ChevronUp" : "ChevronDown"} size={16} />
+                </Button>
+              </div>
+
+              {showInventory && (
+                <div className="space-y-2 animate-fade-in">
+                  {inventory.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-3 p-2 bg-muted rounded border border-border hover:border-primary transition-colors cursor-pointer"
+                    >
+                      <span className="text-2xl">{item.icon}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs font-bold truncate">{item.name}</div>
+                        <div className="text-[10px] text-muted-foreground">{item.type}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {!showInventory && (
+                <div className="text-xs text-center text-muted-foreground py-2">
+                  Предметов: {inventory.length}
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-4 bg-card border-2 border-border">
+              <h3 className="text-sm md:text-base mb-3 flex items-center gap-2">
+                <Icon name="Scroll" size={16} />
+                КВЕСТЫ
+              </h3>
+              <div className="space-y-2 text-xs">
+                <div className="p-2 bg-muted rounded border border-border">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon name="Target" size={12} />
+                    <span className="font-bold">Исследователь</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Открой все локации на карте</p>
+                  <Progress value={33} className="h-1 mt-2" />
+                </div>
+                <div className="p-2 bg-muted rounded border border-border">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Icon name="Swords" size={12} />
+                    <span className="font-bold">Охотник на драконов</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Победи древнего дракона</p>
+                  <Progress value={0} className="h-1 mt-2" />
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
